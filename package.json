@@ -1,0 +1,30 @@
+{
+  "name": "cache-file2",
+  "version": "0.1.0",
+  "description": "Store and get files from cache",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Bacra/node-cache-file.git"
+  },
+  "keywords": [
+    "node",
+    "cache",
+    "file"
+  ],
+  "author": "Bacra Woo <bacra.woo@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Bacra/node-cache-file/issues"
+  },
+  "homepage": "https://github.com/Bacra/node-cache-file",
+  "dependencies": {
+    "debug": "^2.1.3",
+    "lockfile": "^1.0.0",
+    "mkdirp": "^0.5.0",
+    "writefile": "^0.2.8"
+  }
+}
