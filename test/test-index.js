@@ -14,3 +14,11 @@ cache.add('cache1.json', function(err, addContent) {
 cache.read('cache1.json', function(err) {
 	assert.ok(!!err, 'not lock');
 });
+
+assert.throws(function() {
+	cache.readSync('cache1.json');
+}, 'not lock');
+
+assert.throws(function() {
+	cache.addSync('cache1.json', 'content2');
+}, 'not lock');

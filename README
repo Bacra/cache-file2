@@ -1,0 +1,56 @@
+# cache file2
+
+Store and get files from cache.
+
+## Usage
+
+```javascript
+var cacheFile = require('cache-file2')
+
+cacheFile.add('./cache.json', function(err, addContent) {
+	addContent('content', function(err) {});
+});
+
+cacheFile.add('./cache2.json', 'content2', function(err) {});
+```
+
+## Methods
+
+Sync methods return the value/throw the error, others don't.  Standard
+node fs stuff.
+
+### cacheFile.add(file, [content], cb)
+
+### cacheFile.addSync(file, [content])
+
+### cacheFile.ladd(file, lockfile, options, [content], cb)
+
+### cacheFile.laddSync(file, lockfile, options, [content])
+
+### cacheFile.read(file, cb)
+
+### cacheFile.readSync(file)
+
+### cacheFile.lread(file, lockfile, options cb)
+
+### cacheFile.lreadSync(file, lockfile, options)
+
+### cacheFile.status(file)
+
+### cacheFile.statusSync(file)
+
+### cacheFile.lstatus(file, lockfile, options, cb)
+
+### cacheFile.lstatusSync(file, lockfile, options)
+
+### cacheFile.Cache(root)
+
+#### cache.safeRead(filename, cb)
+
+#### cache.safeReadSync(filename)
+
+### cacheFile.options();
+
+## Options
+
+See [lockfile](https://github.com/npm/lockfile#options)
