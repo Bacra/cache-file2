@@ -80,7 +80,7 @@ read cache file through checking path
 
 read cache file sync through checking path
 
-### cacheFile.options();
+### cacheFile.options()
 
 set lockfile default options
 
