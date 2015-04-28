@@ -20,7 +20,7 @@ cacheFile.add('./cache2.json', 'content2', function(err) {});
 Sync methods return the value/throw the error, others don't.  Standard
 node fs stuff.
 
-### cacheFile.add(file, [content], cb)
+### cacheFile.add(file, [content], [cb])
 
 write cache file
 
@@ -28,7 +28,7 @@ write cache file
 
 write cache file sync
 
-### cacheFile.ladd(file, lockfile, options, [content], cb)
+### cacheFile.ladd(file, lockfile, options, [content], [cb])
 
 write cache file width options
 
@@ -36,7 +36,7 @@ write cache file width options
 
 write cache file sync width options
 
-### cacheFile.read(file, cb)
+### cacheFile.read(file, [cb])
 
 read cache file
 
@@ -44,7 +44,7 @@ read cache file
 
 read cache file sync
 
-### cacheFile.lread(file, lockfile, options cb)
+### cacheFile.lread(file, lockfile, options [cb])
 
 read cache file width options
 
@@ -60,7 +60,7 @@ get cache status
 
 get cache status sync
 
-### cacheFile.lstatus(file, lockfile, options, cb)
+### cacheFile.lstatus(file, lockfile, options, [cb])
 
 get cache status width options
 
@@ -72,7 +72,7 @@ get cache status sync width options
 
 get cache object for root path 
 
-#### cache.safeRead(filename, cb)
+#### cache.safeRead(filename, [cb])
 
 read cache file through checking path
 
