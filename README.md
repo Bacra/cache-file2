@@ -1,18 +1,18 @@
-node-cache-file2  [![Build Status](https://travis-ci.org/Bacra/node-cache-file2.svg?branch=master)](https://travis-ci.org/Bacra/node-cache-file2)
+node-safe-write  [![Build Status](https://travis-ci.org/Bacra/node-safe-write.svg?branch=master)](https://travis-ci.org/Bacra/node-safe-write)
 ==================
 
-Store and get files from cache.
+Store and get files width file locker. It is safe in mulit process.
 
 ## Usage
 
 ```javascript
-var cacheFile = require('cache-file2')
+var safeWrite = require('safe-write')
 
-cacheFile.add('./cache.json', function(err, addContent) {
+safeWrite.add('./file.json', function(err, addContent) {
 	addContent('content', function(err) {});
 });
 
-cacheFile.add('./cache2.json', 'content2', function(err) {});
+safeWrite.add('./file2.json', 'content2', function(err) {});
 ```
 
 ## Methods
@@ -20,67 +20,67 @@ cacheFile.add('./cache2.json', 'content2', function(err) {});
 Sync methods return the value/throw the error, others don't.  Standard
 node fs stuff.
 
-### cacheFile.add(file, [content], [cb])
+### safeWrite.add(file, [content], [cb])
 
-write cache file
+write file
 
-### cacheFile.addSync(file, [content])
+### safeWrite.addSync(file, [content])
 
-write cache file sync
+write file sync
 
-### cacheFile.ladd(file, lockfile, options, [content], [cb])
+### safeWrite.ladd(file, lockfile, options, [content], [cb])
 
-write cache file width options
+write file width options
 
-### cacheFile.laddSync(file, lockfile, options, [content])
+### safeWrite.laddSync(file, lockfile, options, [content])
 
-write cache file sync width options
+write file sync width options
 
-### cacheFile.read(file, [cb])
+### safeWrite.read(file, [cb])
 
-read cache file
+read file
 
-### cacheFile.readSync(file)
+### safeWrite.readSync(file)
 
-read cache file sync
+read file sync
 
-### cacheFile.lread(file, lockfile, options [cb])
+### safeWrite.lread(file, lockfile, options [cb])
 
-read cache file width options
+read file width options
 
-### cacheFile.lreadSync(file, lockfile, options)
+### safeWrite.lreadSync(file, lockfile, options)
 
-read cache file sync width options
+read file sync width options
 
-### cacheFile.status(file)
+### safeWrite.status(file)
 
-get cache status
+get file status
 
-### cacheFile.statusSync(file)
+### safeWrite.statusSync(file)
 
-get cache status sync
+get file status sync
 
-### cacheFile.lstatus(file, lockfile, options, [cb])
+### safeWrite.lstatus(file, lockfile, options, [cb])
 
-get cache status width options
+get file status width options
 
-### cacheFile.lstatusSync(file, lockfile, options)
+### safeWrite.lstatusSync(file, lockfile, options)
 
-get cache status sync width options
+get file status sync width options
 
-### cacheFile.Cache(root)
+### safeWrite.Writer(root)
 
-get cache object for root path 
+get file object for root path 
 
-#### cache.safeRead(filename, [cb])
+#### writer.safeRead(filename, [cb])
 
-read cache file through checking path
+read file through checking path
 
-#### cache.safeReadSync(filename)
+#### writer.safeReadSync(filename)
 
-read cache file sync through checking path
+read file sync through checking path
 
-### cacheFile.options()
+### safeWrite.options()
 
 set lockfile default options
 
