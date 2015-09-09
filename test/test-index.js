@@ -1,95 +1,78 @@
 // require('debug').enable('safe-write*');
 
-var assert = require('assert');
-var safeWrite = require('../.');
-var fs = require('fs');
-var rmdir = require('rmdir');
-var testPath = __dirname+'/tmp';
+var fs			= require('fs');
+var rmdir		= require('rmdir');
+var assert		= require('assert');
+var cluster		= require('cluster');
+var testPath	= __dirname+'/tmp';
 
+if (cluster.isMaster) {
 
-describe('[Async Base]', function() {
-	before(function(done) {
-		if (!fs.existsSync(testPath)) return done();
+	if (fs.existsSync(testPath)) {
 		rmdir(testPath, done);
-	});
-
-	var testfile = 'file1.json';
-
-	function testAsync(name, filename, exthandler) {
-		if (!filename) filename = name+'.json';
-		if (!exthandler) exthandler = function(){};
-		var file = testPath+'/'+filename;
-
-		it(name, function(done) {
-			var writer = safeWrite.Writer(testPath);
-			assert.ok(!fs.existsSync(file));
-
-			var asyncTask = 2;
-			function extasync() {
-				asyncTask++;
-				return relDone;
-			}
-			function relDone() {
-				if (!--asyncTask) done();
-			}
-
-			var extParams = {
-				name: name,
-				filename: filename,
-				file: file,
-				writer: writer,
-				async: extasync
-			};
-
-			writer.add(filename, function(err, addContent) {
-				assert.ok(!err, 'init add lock err');
-				var fileContent = 'write some thing';
-
-				exthandler('lock', extParams);
-
-				addContent(fileContent, function(err) {
-					assert.ok(!err, 'add content err');
-					console.log(filename, fs.existsSync(file));
-					exthandler('writeEnd', extParams);
-					relDone();
-				});
-
-				writer.read(filename, function(err, content) {
-					assert.ok(err);
-					relDone();
-				});
-			});
-
-			assert.ok(!fs.existsSync(file));
-
-			try {
-				assert.ok(!writer.readSync(filename).toString());
-			} catch(err) {
-				assert.ok(err);
-			}
-
-			exthandler('unlock', extParams);
-		});
+	} else {
+		done();
 	}
 
-	testAsync('base');
-	testAsync('addSync', null, function(flow, params) {
-		function doWrite() {
-			var newfileContent = 'new content:'+flow;
-			params.writer.addSync(params.filename, newfileContent);
-			assert.ok(fs.existsSync(params.file));
-			assert.equal(fs.readFileSync(params.file).toString(), newfileContent);
+
+	function done() {
+
+		var clientNum = 8;
+		var waitExitNum = clientNum;
+		var waitOnlineNum = clientNum;
+		var workers = [];
+
+		while(clientNum--) {
+			var f = cluster.fork();
+			f.once('online', function() {
+					if (!--waitOnlineNum) {
+						workers.forEach(function(f) {
+							f.send('start');
+						});
+					}
+				})
+				.once('exit', function() {
+					if (!--waitOnlineNum) {
+						assert.ok(fs.existsSync(testPath+'/tmp1.conf'), 'add content1 err');
+						assert.ok(fs.existsSync(testPath+'/tmp2.conf'), 'add content2 err');
+						assert.ok(fs.existsSync(testPath+'/tmp3.conf'), 'add content3 err');
+						// process.exit();
+					}
+				});
+			workers.push(f);
+		}
+	}
+
+} else {
+
+	process.on('message', function(msg) {
+		if (msg != 'start') return;
+
+		var safeRewrite = require('../');
+		var writeTimes = 4;
+		var writeQuery = [];
+
+		function rewrite() {
+			writeQuery.push(arguments);
+		}
+		while(writeTimes--) {
+			rewrite(testPath+'/tmp1.conf', 'content1,'+process.pid);
+			rewrite(testPath+'/tmp2.conf', 'content2,'+process.pid+Date.now());
+			rewrite(testPath+'/tmp3.conf', 'content3,'+process.pid+Date.now());
 		}
 
-		if (flow == 'writeEnd') {
-			doWrite();
-		} else if (flow == 'lock') {
-			assert.throws(doWrite);
-		}
+		process.nextTick(function() {
+			var waitTimes = writeQuery.length;
+			console.log('start write query, pid:'+process.pid);
+
+			writeQuery.forEach(function(args) {
+				safeRewrite.write.apply(safeRewrite, args)
+					.then(function() {
+						if (!--waitTimes) process.exit();
+					});
+			});
+		});
 	});
 
-});
-
-
-
+}
 
