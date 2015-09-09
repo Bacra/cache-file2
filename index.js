@@ -25,29 +25,48 @@ function read(file, callback) {
 		})
 		.then(function(lock) {
 			// 被lock的情况下，进行文件监听
-			return lock && new Promise(function(resolve, reject) {
-				debug('watch file:%s', file);
+			return lock && new Promise(function(resolve) {
+					fs.exists(lockFile, resolve);
+				})
+				.then(function(exists) {
+					return exists && new Promise(function(resolve, reject) {
+						debug('watch file:%s', file);
+						var fsw, wait;
 
-				var fsw = fs.watch(lockFile)
-					.on(function(event) {
-						if (event == 'rename') {
-							debug('file fire rename event');
+						// 监听超时后，使用lockmgr检查一下是不是已经过期了
+						wait = setTimeout(function() {
+							fsw && fsw.close();
+							lockmgr.check(lockFile, exports.lockOpts, _resolveWidthError(resolve, reject));
+						}, exports.readLockWait);
 
-							clearTimeout(wait);
-							this.close();
-							resolve();
+						try {
+							// 使用FSWatch 监听文件的删除
+							fsw = fs.watch(lockFile)
+								.on('change', function(event) {
+									if (event == 'rename') {
+										debug('file fire rename event');
+
+										wait && clearTimeout(wait);
+										this.close();
+										resolve();
+									}
+								})
+								.on('error', function(err) {
+									wait && clearTimeout(wait);
+									reject(err);
+								});
+						} catch(err) {
+							// 在开始监听的时候，文件被删除
+							wait && clearTimeout(wait);
+
+							if (fs.existsSync(lockFile)) {
+								reject(err);
+							} else {
+								resolve();
+							}
 						}
-					})
-					.on('error', function(err) {
-						clearTimeout(wait);
-						reject(err);
 					});
-
-				var wait = setTimeout(function() {
-					fsw.close();
-					reject(new Error('EMTIMEOUT'));
-				}, exports.readLockWait);
-			});
+				});
 		})
 		.then(function() {
 			return new Promise(function(resolve, reject) {
@@ -194,7 +213,7 @@ function _resolveWidthError(resolve, reject, ignoreData) {
 		if (err) {
 			reject(err);
 		} else {
-			resolve(ignoreData ? null : data);
+			resolve(ignoreData ? undefined : data);
 		}
 	}
 }
