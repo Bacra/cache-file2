@@ -5,6 +5,9 @@ var rmdir		= require('rmdir');
 var assert		= require('assert');
 var cluster		= require('cluster');
 var testPath	= __dirname+'/tmp';
+var testFileNum	= 8;
+var clientNum	= 8;
+
 
 if (cluster.isMaster) {
 
@@ -17,7 +20,6 @@ if (cluster.isMaster) {
 
 	function done() {
 
-		var clientNum = 8;
 		var waitExitNum = clientNum;
 		var waitOnlineNum = clientNum;
 		var workers = [];
@@ -33,9 +35,9 @@ if (cluster.isMaster) {
 				})
 				.once('exit', function() {
 					if (!--waitOnlineNum) {
-						assert.ok(fs.existsSync(testPath+'/tmp1.conf'), 'add content1 err');
-						assert.ok(fs.existsSync(testPath+'/tmp2.conf'), 'add content2 err');
-						assert.ok(fs.existsSync(testPath+'/tmp3.conf'), 'add content3 err');
+						eachFile(function(file, fileIndex) {
+							assert.ok(fs.existsSync(file), 'content'+fileIndex+' err');
+						});
 						// process.exit();
 					}
 				});
@@ -48,31 +50,47 @@ if (cluster.isMaster) {
 	process.on('message', function(msg) {
 		if (msg != 'start') return;
 
-		var safeRewrite = require('../');
-		var writeTimes = 4;
-		var writeQuery = [];
+		var safeWrite = require('../');
+		var writeTimes = 100;
+		var waitTimes = testFileNum;
+		console.log('start write query, pid:'+process.pid);
 
-		function rewrite() {
-			writeQuery.push(arguments);
-		}
-		while(writeTimes--) {
-			rewrite(testPath+'/tmp1.conf', 'content1,'+process.pid);
-			rewrite(testPath+'/tmp2.conf', 'content2,'+process.pid+Date.now());
-			rewrite(testPath+'/tmp3.conf', 'content3,'+process.pid+Date.now());
-		}
+		eachFile(function(file, fileIndex) {
+			process.nextTick(function() {
+				var baseContent = 'content'+fileIndex+','+process.pid+',';
+				var pro = safeWrite.write(file, baseContent+Date.now());
 
-		process.nextTick(function() {
-			var waitTimes = writeQuery.length;
-			console.log('start write query, pid:'+process.pid);
+				for(var i = writeTimes; i--;) {
+					pro = pro.then(function() {
+						return safeWrite.read(file)
+							.then(function(err, content) {
+								var newContent = baseContent+Date.now();
+								if (err) {
+									console.log('read err', err.stack);
+								} else {
+									newContent = content +'\n'+newContent;
+								}
 
-			writeQuery.forEach(function(args) {
-				safeRewrite.write.apply(safeRewrite, args)
-					.then(function() {
-						if (!--waitTimes) process.exit();
+								return safeWrite.write(file, newContent)
+									.then(function(err) {
+										err && console.log('write err', err.stack);
+									});
+							});
 					});
+				}
+
+				pro.then(function() {
+					if (!--waitTimes) process.exit();
+				});
 			});
 		});
 	});
 
 }
 
+
+function eachFile(handler) {
+	for(var i = testFileNum; i--;) {
+		(handler)(testPath+'/tmp'+i, i);
+	}
+}
