@@ -15,11 +15,11 @@ safeWrite.read('./file2.json', function(err, content) {});
 
 ## Methods
 
-### safeWrite.write(file, newContent [,oldContent] [,callback])
+### safeWrite.write(file, newContent [,oldContent] [,callback] [,ignoreUnlockErr])
 
 return Promise Object.
 
-### safeWrite.read(file [,callback])
+### safeWrite.read(file [,callback] [,ignoreUnlockErr])
 
 return Promise Object.
 

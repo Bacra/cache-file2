@@ -12,15 +12,27 @@ exports.lockOpts = {stale: 1000, retries: 3, retryWait: 100};
 
 /**
  * 读取文件内容
- * @param  {String}            file
- * @param  {Function/Boolean}  callback/ignoreUnlockErr (default:true)
- * @return {Promise}    Promise then返回参数为 [err, content]
+ * @param  {String}    file
+ * @param  {Function}  callback
+ * @param  {Boolean}   ignoreUnlockErr
+ * @return {Promise}   Promise then返回参数为 [err, content]
  */
-function read(file, callback)
+function read(file, callback, ignoreUnlockErr)
 {
 	var lockFile = _getLockFile(file);
-	var ignoreUnlockErr = callback !== false;
-	
+
+	// 处理参数
+	if (typeof callback == 'boolean')
+	{
+		ignoreUnlockErr = callback;
+		callback = null;
+	}
+	else
+	{
+		ignoreUnlockErr = ignoreUnlockErr !== false;
+	}
+
+
 	var pro = new Promise(function(resolve, reject)
 		{
 			lockmgr.lock(lockFile, exports.lockOpts, _resolveWidthError(resolve, reject));
@@ -72,21 +84,32 @@ function read(file, callback)
 
 /**
  * 向文件写入内容
- * @param  {String}            file
- * @param  {String/Buffer}     newContent
- * @param  {String/Buffer}     oldContent
- * @param  {Function/Boolean}  callback/ignoreUnlockErr
+ * @param  {String}         file
+ * @param  {String/Buffer}  newContent
+ * @param  {String/Buffer}  oldContent
+ * @param  {Function}       callback
+ * @param  {Boolean}        ignoreUnlockErr
  * @return {Promise}
  */
-function write(file, newContent, oldContent, callback)
+function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 {
 	var filepath	= path.dirname(file);
 	var lockFile	= _getLockFile(file);
 	var tmpFile		= _extfilename(file, ['', Date.now(), process.pid, Math.floor(Math.random()*10000), ''].join('~'));
 
-	var ignoreUnlockErr = callback !== false;
+	// 处理参数
+	if (typeof callback == 'boolean')
+	{
+		ignoreUnlockErr = callback;
+		callback = null;
+	}
+	else
+	{
+		ignoreUnlockErr = ignoreUnlockErr !== false;
+	}
 
-	debug('write lockFile:%s tmpFile:%s', lockFile, tmpFile);
+
+	debug('write lockFile:%s tmpFile:%s igUnlock:%b', lockFile, tmpFile, ignoreUnlockErr);
 
 	var pro = new Promise(function(resolve)
 		{
