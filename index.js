@@ -12,12 +12,13 @@ exports.lockOpts = {stale: 1000, retries: 3, retryWait: 100};
 
 /**
  * 读取文件内容
- * @param  {String}   file
- * @param  {Function} callback
- * @return {Promise}             Promise then返回参数为 [err, content]
+ * @param  {String}            file
+ * @param  {Function/Boolean}  callback/ignoreUnlockErr (default:true)
+ * @return {Promise}    Promise then返回参数为 [err, content]
  */
 function read(file, callback) {
 	var lockFile = _getLockFile(file);
+	var ignoreUnlockErr = callback !== false;
 	
 	var pro = new Promise(function(resolve, reject) {
 			lockmgr.lock(lockFile, exports.lockOpts, _resolveWidthError(resolve, reject));
@@ -28,14 +29,20 @@ function read(file, callback) {
 					if (err) {
 						reject(err);
 					} else {
-						resolve(null, content);
+						resolve(content);
 					}
 				});
 			});
 		})
-		.then(function() {
+		.then(function(content) {
 			return new Promise(function(resolve, reject) {
-				lockmgr.unlock(lockFile, _resolveWidthError(resolve, reject, true));
+				lockmgr.unlock(lockFile, function(err) {
+					if (err) {
+						if (ignoreUnlockErr) return reject(err);
+						debug('unlock err:%o', err);
+					}
+					resolve(null, content);
+				});
 			});
 		})
 		.catch(function(err) {
@@ -52,16 +59,18 @@ function read(file, callback) {
 
 /**
  * 向文件写入内容
- * @param  {String}          file
- * @param  {String/Buffer}   newContent
- * @param  {String/Buffer}   oldContent
- * @param  {Function}        callback
+ * @param  {String}            file
+ * @param  {String/Buffer}     newContent
+ * @param  {String/Buffer}     oldContent
+ * @param  {Function/Boolean}  callback/ignoreUnlockErr
  * @return {Promise}
  */
 function write(file, newContent, oldContent, callback) {
 	var filepath	= path.dirname(file);
 	var lockFile	= _getLockFile(file);
 	var tmpFile		= _extfilename(file, ['', Date.now(), process.pid, Math.floor(Math.random()*10000), ''].join('~'));
+
+	var ignoreUnlockErr = callback !== false;
 
 	debug('rewrite lockFile:%s tmpFile:%s', lockFile, tmpFile);
 
@@ -145,8 +154,15 @@ function write(file, newContent, oldContent, callback) {
 		.then(function() {
 			debug('unlock workspace');
 			// unlock 工作区
-			return new Promise(function(resolve, reject) {
-				lockmgr.unlock(lockFile, _resolveWidthError(resolve, reject, true));
+			// 不关有没有unlock成功
+			return new Promise(function(resolve) {
+				lockmgr.unlock(lockFile, function(err) {
+					if (err) {
+						if (ignoreUnlockErr) return reject(err);
+						debug('unlock err:%o', err);
+					}
+					resolve();
+				});
 			});
 		})
 		.catch(function(err) {
@@ -167,12 +183,12 @@ function write(file, newContent, oldContent, callback) {
 }
 
 
-function _resolveWidthError(resolve, reject, ignoreData) {
+function _resolveWidthError(resolve, reject) {
 	return function(err, data) {
 		if (err) {
 			reject(err);
 		} else {
-			resolve(ignoreData ? undefined : data);
+			resolve(data);
 		}
 	}
 }
