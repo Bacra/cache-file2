@@ -9,33 +9,37 @@ var testFileNum	= 8;
 var clientNum	= 8;
 
 
-if (cluster.isMaster) {
+if (cluster.isMaster)
+{
 
-	if (fs.existsSync(testPath)) {
-		rmdir(testPath, done);
-	} else {
-		done();
-	}
+	fs.existsSync(testPath) ? rmdir(testPath, done) : done();
 
-
-	function done() {
+	function done()
+	{
 
 		var waitExitNum = clientNum;
 		var waitOnlineNum = clientNum;
 		var workers = [];
 
-		while(clientNum--) {
+		while(clientNum--)
+		{
 			var f = cluster.fork();
-			f.once('online', function() {
-					if (!--waitOnlineNum) {
-						workers.forEach(function(f) {
+			f.once('online', function()
+			{
+					if (!--waitOnlineNum)
+					{
+						workers.forEach(function(f)
+						{
 							f.send('start');
 						});
 					}
 				})
-				.once('exit', function() {
-					if (!--waitOnlineNum) {
-						eachFile(function(file, fileIndex) {
+				.once('exit', function()
+				{
+					if (!--waitOnlineNum)
+					{
+						eachFile(function(file, fileIndex)
+						{
 							assert.ok(fs.existsSync(file), 'content'+fileIndex+' err');
 						});
 						// process.exit();
@@ -45,9 +49,12 @@ if (cluster.isMaster) {
 		}
 	}
 
-} else {
+}
+else
+{
 
-	process.on('message', function(msg) {
+	process.on('message', function(msg)
+	{
 		if (msg != 'start') return;
 
 		var safeWrite = require('../');
@@ -55,32 +62,38 @@ if (cluster.isMaster) {
 		var waitTimes = testFileNum;
 		console.log('start write query, pid:'+process.pid);
 
-		eachFile(function(file, fileIndex) {
-			process.nextTick(function() {
+		eachFile(function(file, fileIndex)
+		{
+			process.nextTick(function()
+			{
 				var baseContent = 'content'+fileIndex+','+process.pid+',';
 				var pro = safeWrite.write(file, baseContent+Date.now());
 
-				for(var i = writeTimes; i--;) {
-					pro = pro.then(function() {
-						return safeWrite.read(file, function(err, content) {
+				for(var i = writeTimes; i--;)
+				{
+					pro = pro.then(function()
+					{
+						return safeWrite.read(file, function(err, content)
+							{
 								// console.log(err, content);
 								var newContent = baseContent+Date.now();
 
-								if (err) {
+								if (err)
 									console.log('read err', err.stack);
-								} else {
+								else
 									newContent = content +'\n'+newContent;
-								}
 
 								return safeWrite.write(file, newContent)
-									.then(function(err) {
+									.then(function(err)
+									{
 										err && console.log('write err', err.stack);
 									});
 							});
 					});
 				}
 
-				pro.then(function() {
+				pro.then(function()
+				{
 					if (!--waitTimes) process.exit();
 				});
 			});
@@ -90,8 +103,10 @@ if (cluster.isMaster) {
 }
 
 
-function eachFile(handler) {
-	for(var i = testFileNum; i--;) {
+function eachFile(handler)
+{
+	for(var i = testFileNum; i--;)
+	{
 		(handler)(testPath+'/tmp'+i, i);
 	}
 }
