@@ -41,7 +41,7 @@ function read(file, callback) {
 						if (ignoreUnlockErr) return reject(err);
 						debug('unlock err:%o', err);
 					}
-					resolve(null, content);
+					resolve(content);
 				});
 			});
 		})
@@ -51,7 +51,15 @@ function read(file, callback) {
 		});
 
 	// 兼容callback
-	if (typeof callback == 'function') pro.then(callback);
+	if (typeof callback == 'function') {
+		pro.then(function(data) {
+			if (Buffer.isBuffer(data)) {
+				callback(null, data);
+			} else {
+				callback(data);
+			}
+		});
+	}
 
 	return pro;
 }

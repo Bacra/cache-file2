@@ -62,9 +62,10 @@ if (cluster.isMaster) {
 
 				for(var i = writeTimes; i--;) {
 					pro = pro.then(function() {
-						return safeWrite.read(file)
-							.then(function(err, content) {
+						return safeWrite.read(file, function(err, content) {
+								// console.log(err, content);
 								var newContent = baseContent+Date.now();
+
 								if (err) {
 									console.log('read err', err.stack);
 								} else {
