@@ -83,9 +83,14 @@ function read(file, callback, ignoreUnlockErr)
 	{
 		pro.then(function(data)
 		{
-			callback(null, data)
+			callback(null, data);
+			return data;
 		},
-		callback);
+		function(err)
+		{
+			callback(err);
+			throw err;
+		});
 	}
 
 	return pro;
@@ -232,6 +237,11 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 					resolve();
 				});
 			});
+		})
+		.catch(function(err)
+		{
+			logger.write('write file err:%o', err);
+			throw err;
 		});
 
 
@@ -242,7 +252,11 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		{
 			callback(null);
 		},
-		callback);
+		function(err)
+		{
+			callback(err);
+			throw err;
+		});
 	}
 
 	return pro;
