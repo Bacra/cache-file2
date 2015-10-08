@@ -27,11 +27,7 @@ function read(file, callback, ignoreUnlockErr)
 		ignoreUnlockErr = callback;
 		callback = null;
 	}
-	else
-	{
-		ignoreUnlockErr = ignoreUnlockErr !== false;
-	}
-
+	ignoreUnlockErr = ignoreUnlockErr !== false;
 
 	var pro = new Promise(function(resolve, reject)
 		{
@@ -103,13 +99,9 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		ignoreUnlockErr = callback;
 		callback = null;
 	}
-	else
-	{
-		ignoreUnlockErr = ignoreUnlockErr !== false;
-	}
+	ignoreUnlockErr = ignoreUnlockErr !== false;
 
-
-	debug('write lockFile:%s tmpFile:%s igUnlock:%b', lockFile, tmpFile, ignoreUnlockErr);
+	debug('write lockFile:%s tmpFile:%s igunlock:%s', lockFile, tmpFile, ignoreUnlockErr);
 
 	var pro = new Promise(function(resolve)
 		{
