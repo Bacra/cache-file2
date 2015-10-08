@@ -1,8 +1,14 @@
 var fs		= require('fs');
-var debug	= require('debug')('safe-write');
+var debug	= require('debug');
 var lockmgr	= require('lockfile');
 var mkdirp	= require('mkdirp');
 var path	= require('path');
+
+var logger =
+{
+	read	: debug('safe-write:read'),
+	write	: debug('safe-write:write')
+};
 
 if (typeof Promise == 'undefined') Promise = require('promise');
 
@@ -29,6 +35,8 @@ function read(file, callback, ignoreUnlockErr)
 	}
 	ignoreUnlockErr = ignoreUnlockErr !== false;
 
+	logger.read('read lockFile:%s igunlock:%s', lockFile, ignoreUnlockErr);
+
 	var pro = new Promise(function(resolve, reject)
 		{
 			lockmgr.lock(lockFile, exports.lockOpts, _resolveWidthError(resolve, reject));
@@ -51,7 +59,7 @@ function read(file, callback, ignoreUnlockErr)
 				{
 					if (err)
 					{
-						debug('unlock err:%o', err);
+						logger.read('unlock err:%o', err);
 						if (ignoreUnlockErr) return reject(err);
 					}
 
@@ -59,9 +67,14 @@ function read(file, callback, ignoreUnlockErr)
 				});
 			});
 		})
-		.catch(function(err)
+		.then(function(content)
 		{
-			debug('read file err:%o', err);
+			logger.read('read suc,len:%d', content.length);
+			return content;
+		},
+		function(err)
+		{
+			logger.read('read file err:%o', err);
 			throw err;
 		});
 
@@ -102,7 +115,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 	}
 	ignoreUnlockErr = ignoreUnlockErr !== false;
 
-	debug('write lockFile:%s tmpFile:%s igunlock:%s', lockFile, tmpFile, ignoreUnlockErr);
+	logger.write('write lockFile:%s tmpFile:%s igunlock:%s', lockFile, tmpFile, ignoreUnlockErr);
 
 	var pro = new Promise(function(resolve)
 		{
@@ -118,7 +131,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		.then(function()
 		{
 			// lock 工作区域
-			debug('lock workspace');
+			logger.write('lock workspace');
 
 			return new Promise(function(resolve, reject)
 				{
@@ -128,7 +141,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		.then(function()
 		{
 			// 读取旧文件内容
-			debug('get old content');
+			logger.write('get old content');
 
 			return oldContent || new Promise(function(resolve)
 				{
@@ -144,7 +157,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 				})
 				.catch(function(err)
 				{
-					debug('read oldContent err:%o', err);
+					logger.write('read oldContent err:%o', err);
 				});
 		})
 		.then(function(oldContent)
@@ -153,12 +166,12 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 			if (!!oldContent && !!newContent
 				&& newContent.toString() == oldContent.toString())
 			{
-				return debug('write block: content equal');
+				return logger.write('write block: content equal');
 			}
 			else
 			{
 				// 写入新内容
-				debug('write new content');
+				logger.write('write new content');
 
 				return new Promise(function(resolve, reject)
 					{
@@ -197,13 +210,13 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 					})
 					.catch(function(err)
 					{
-						debug('write err:%o', err);
+						logger.write('write err:%o', err);
 					});
 			}
 		})
 		.then(function()
 		{
-			debug('unlock workspace');
+			logger.write('unlock workspace');
 			// unlock 工作区
 			// 不关有没有unlock成功
 			return new Promise(function(resolve)
@@ -212,18 +225,13 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 				{
 					if (err)
 					{
-						debug('unlock err:%o', err);
+						logger.write('unlock err:%o', err);
 						if (ignoreUnlockErr) return reject(err);
 					}
 
 					resolve();
 				});
 			});
-		})
-		.catch(function(err)
-		{
-			debug('write wrap task err: %o', err);
-			throw err;
 		});
 
 
