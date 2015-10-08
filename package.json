@@ -26,6 +26,7 @@
   "homepage": "https://github.com/Bacra/node-safe-write",
   "dependencies": {
     "debug": "^2.2.0",
+    "extend": "^3.0.0",
     "lockfile": "^1.0.1",
     "mkdirp": "^0.5.1",
     "promise": "^7.0.4"

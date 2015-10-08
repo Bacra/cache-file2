@@ -3,6 +3,7 @@ var debug	= require('debug');
 var lockmgr	= require('lockfile');
 var mkdirp	= require('mkdirp');
 var path	= require('path');
+var extend	= require('extend');
 
 var logger =
 {
@@ -14,7 +15,7 @@ if (typeof Promise == 'undefined') Promise = require('promise');
 
 exports.read = read;
 exports.write = write;
-exports.lockOpts = {stale: 1000, retries: 3, retryWait: 100};
+exports.lockOpts = {stale: 10000, retries: 6, retryWait: 50};
 
 /**
  * 读取文件内容
@@ -39,7 +40,7 @@ function read(file, callback, ignoreUnlockErr)
 
 	var pro = new Promise(function(resolve, reject)
 		{
-			lockmgr.lock(lockFile, exports.lockOpts, _resolveWidthError(resolve, reject));
+			lockmgr.lock(lockFile, extend({}, exports.lockOpts), _resolveWidthError(resolve, reject));
 		})
 		.then(function()
 		{
@@ -78,20 +79,7 @@ function read(file, callback, ignoreUnlockErr)
 			throw err;
 		});
 
-	// 兼容callback
-	if (typeof callback == 'function')
-	{
-		pro.then(function(data)
-		{
-			callback(null, data);
-			return data;
-		},
-		function(err)
-		{
-			callback(err);
-			throw err;
-		});
-	}
+	_supportCallback(callback, pro);
 
 	return pro;
 }
@@ -140,7 +128,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 
 			return new Promise(function(resolve, reject)
 				{
-					lockmgr.lock(lockFile, exports.lockOpts, _resolveWidthError(resolve, reject));
+					lockmgr.lock(lockFile, extend({}, exports.lockOpts), _resolveWidthError(resolve, reject));
 				});
 		})
 		.then(function()
@@ -245,19 +233,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		});
 
 
-	// 支持一下callback，其实不用callback会更好
-	if (typeof callback == 'function')
-	{
-		pro.then(function()
-		{
-			callback(null);
-		},
-		function(err)
-		{
-			callback(err);
-			throw err;
-		});
-	}
+	_supportCallback(callback, pro);
 
 	return pro;
 }
@@ -279,4 +255,17 @@ function _getLockFile(file)
 function _extfilename(file, ext)
 {
 	return path.dirname(file)+'/.'+ext+path.basename(file);
+}
+
+// 支持一下callback，其实不用callback会更好
+function _supportCallback(callback, pro)
+{
+	if (typeof callback == 'function')
+	{
+		pro.then(function(data)
+		{
+			callback(null, data);
+		},
+		callback);
+	}
 }
