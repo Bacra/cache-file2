@@ -45,28 +45,39 @@ function read(file, callback, ignoreUnlockErr)
 		.then(function()
 		{
 			return new Promise(function(resolve, reject)
-			{
-				fs.readFile(file, function(err, content)
 				{
-					err ? reject(err) : resolve(content);
+					fs.readFile(file, function(err, content)
+						{
+							err ? reject(err) : resolve(content);
+						});
 				});
-			});
 		})
 		.then(function(content)
 		{
 			return new Promise(function(resolve, reject)
-			{
-				lockmgr.unlock(lockFile, function(err)
 				{
-					if (err)
-					{
-						logger.read('unlock err:%o', err);
-						if (ignoreUnlockErr) return reject(err);
-					}
+					lockmgr.unlock(lockFile, function(err)
+						{
+							if (err)
+							{
+								logger.read('unlock err:%o', err);
+								if (ignoreUnlockErr) return reject(err);
+							}
 
-					resolve(content);
+							resolve(content);
+						});
 				});
-			});
+		},
+		function(redErr)
+		{
+			return new Promise(function(resolve, reject)
+				{
+					lockmgr.unlock(lockFile, function(err)
+						{
+							if (err) logger.read('unlock err:%o', err);
+							reject(redErr);
+						});
+				});
 		})
 		.then(function(content)
 		{
@@ -159,7 +170,8 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 			if (!!oldContent && !!newContent
 				&& newContent.toString() == oldContent.toString())
 			{
-				return logger.write('write block: content equal');
+				logger.write('write block: content equal');
+				return;
 			}
 			else
 			{
@@ -173,33 +185,33 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 					.then(function()
 					{
 						return new Promise(function(resolve, reject)
-						{
-							try {
-								// rename 快速把内容转移过去
-								fs.renameSync(tmpFile, file);
-							}
-							catch(err) {
-								return reject(err);
-							}
+							{
+								try {
+									// rename 快速把内容转移过去
+									fs.renameSync(tmpFile, file);
+								}
+								catch(err) {
+									return reject(err);
+								}
 
-							resolve();
-						});
+								resolve();
+							});
 					})
 					.then(function()
 					{
 						// 检查写入的文件是否正确
 						return new Promise(function(resolve, reject)
-						{
-							fs.readFile(file, function(err, content)
 							{
-								if (err) return reject(err);
+								fs.readFile(file, function(err, content)
+								{
+									if (err) return reject(err);
 
-								if (content.toString() != newContent.toString())
-									return reject(new Error('file content write fail'));
+									if (content.toString() != newContent.toString())
+										return reject(new Error('file content write fail'));
 
-								resolve();
+									resolve();
+								});
 							});
-						});
 					})
 					.catch(function(err)
 					{
@@ -211,20 +223,31 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		{
 			logger.write('unlock workspace');
 			// unlock 工作区
-			// 不关有没有unlock成功
+			// 不管有没有unlock成功
 			return new Promise(function(resolve)
-			{
-				lockmgr.unlock(lockFile, function(err)
 				{
-					if (err)
-					{
-						logger.write('unlock err:%o', err);
-						if (ignoreUnlockErr) return reject(err);
-					}
+					lockmgr.unlock(lockFile, function(err)
+						{
+							if (err)
+							{
+								logger.write('unlock err:%o', err);
+								if (ignoreUnlockErr) return reject(err);
+							}
 
-					resolve();
+							resolve();
+						});
 				});
-			});
+		},
+		function(wrErr)
+		{
+			return new Promise(function(resolve, reject)
+				{
+					lockmgr.unlock(lockFile, function(err)
+						{
+							if (err) logger.write('unlock err:%o', err);
+							reject(wrErr);
+						});
+				});
 		})
 		.catch(function(err)
 		{
