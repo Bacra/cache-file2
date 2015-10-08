@@ -112,6 +112,12 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 	var tmpFile		= _extfilename(file, ['', Date.now(), process.pid, Math.floor(Math.random()*10000), ''].join('~'));
 
 	// 处理参数
+	if (typeof oldContent != 'string' || !Buffer.isBuffer(oldContent))
+	{
+		ignoreUnlockErr = callback;
+		callback = oldContent;
+		oldContent = null;
+	}
 	if (typeof callback == 'boolean')
 	{
 		ignoreUnlockErr = callback;
