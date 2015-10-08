@@ -51,8 +51,8 @@ function read(file, callback, ignoreUnlockErr)
 				{
 					if (err)
 					{
-						if (ignoreUnlockErr) return reject(err);
 						debug('unlock err:%o', err);
+						if (ignoreUnlockErr) return reject(err);
 					}
 
 					resolve(content);
@@ -62,7 +62,7 @@ function read(file, callback, ignoreUnlockErr)
 		.catch(function(err)
 		{
 			debug('read file err:%o', err);
-			return err;
+			throw err;
 		});
 
 	// 兼容callback
@@ -70,8 +70,9 @@ function read(file, callback, ignoreUnlockErr)
 	{
 		pro.then(function(data)
 		{
-			Buffer.isBuffer(data) ? callback(null, data) : callback(data);
-		});
+			callback(null, data)
+		},
+		callback);
 	}
 
 	return pro;
@@ -211,8 +212,8 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 				{
 					if (err)
 					{
-						if (ignoreUnlockErr) return reject(err);
 						debug('unlock err:%o', err);
+						if (ignoreUnlockErr) return reject(err);
 					}
 
 					resolve();
@@ -222,18 +223,18 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		.catch(function(err)
 		{
 			debug('write wrap task err: %o', err);
-			return err;
+			throw err;
 		});
 
 
 	// 支持一下callback，其实不用callback会更好
 	if (typeof callback == 'function')
 	{
-		pro.then(function(err)
+		pro.then(function()
 		{
-			callback(err);
-			return err;
-		});
+			callback(null);
+		},
+		callback);
 	}
 
 	return pro;
