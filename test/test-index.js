@@ -1,13 +1,15 @@
 var debug		= require('debug');
+debug.enable('safe-write:test');
+// debug.enable('*');
+
 var testlog		= debug('safe-write:test');
 var cluster		= require('cluster');
 var testPath	= __dirname+'/tmp';
-var testFileNum	= 4;
-var clientNum	= 2;
-var writeTimes	= 2;
+var testFileNum	= 3;
+var clientNum	= 5;
+var writeTimes	= 100;
 
-// debug.enable('*');
-debug.enable('safe-write:test');
+process.env.UV_THREADPOOL_SIZE = 64;
 
 
 if (cluster.isMaster)
@@ -47,12 +49,13 @@ if (cluster.isMaster)
 				{
 					if (!--waitExitNum)
 					{
-						var lineNum = (writeTimes)*clientNum+1;
+						var expectLineNum = (writeTimes)*clientNum+1;
 						eachFile(function(file, fileIndex)
 						{
 							assert.ok(fs.existsSync(file), 'content '+fileIndex+' err');
 							var fileLine = fs.readFileSync(file).toString().split('\n').length;
-							assert.equal(fileLine, lineNum, 'write '+fileIndex+' line:'+fileLine+'/'+lineNum);
+							testlog('fileline %d:%d/%d', fileIndex, fileLine, expectLineNum);
+							assert.ok(fileLine <= expectLineNum, 'write '+fileIndex+' line:'+fileLine+'/'+expectLineNum);
 						});
 						// process.exit();
 					}
@@ -85,10 +88,6 @@ else
 							{
 								return safeWrite.read(file);
 							})
-							.catch(function(err)
-							{
-								testlog('<%d,%d> read err:%o', process.pid, fileIndex, err);
-							})
 							.then(function(content)
 							{
 								var newContent = baseContent+Date.now();
@@ -98,11 +97,15 @@ else
 									newContent = content +'\n'+newContent;
 								}
 
-								return safeWrite.write(file, newContent);
-							})
-							.catch(function(err)
+								return safeWrite.write(file, newContent)
+										.catch(function(err)
+										{
+											err && testlog('write err, %o', err);
+										});
+							},
+							function(err)
 							{
-								err && testlog('write err, %o', err);
+								testlog('<%d,%d> read err:%o', process.pid, fileIndex, err);
 							});
 				}
 

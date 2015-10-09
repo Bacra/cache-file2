@@ -17,9 +17,19 @@ safeWrite.read('./file2.json', function(err, content) {});
 
 ### safeWrite.write(file, newContent[, oldContent][, callback][, ignoreUnlockErr])
 
+write file width file lock.
+
+return Promise Object.
+
+### safeWrite.fastWrite(file, newContent[, oldContent][, callback])
+
+wirte file widthout file lock.
+
 return Promise Object.
 
 ### safeWrite.read(file[, callback][, ignoreUnlockErr])
+
+read file with file lock.
 
 return Promise Object.
 

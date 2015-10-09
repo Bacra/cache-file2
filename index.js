@@ -15,14 +15,15 @@ if (typeof Promise == 'undefined') Promise = require('promise');
 
 exports.read = read;
 exports.write = write;
-exports.lockOpts = {stale: 10000, retries: 6, retryWait: 50};
+exports.fastWrite = fastWrite;
+exports.lockOpts = {stale: 10000, retries: 40, retryWait: 300};
 
 /**
  * 读取文件内容
  * @param  {String}    file
  * @param  {Function}  callback
  * @param  {Boolean}   ignoreUnlockErr
- * @return {Promise}   Promise then返回参数为 [err, content]
+ * @return {Promise}
  */
 function read(file, callback, ignoreUnlockErr)
 {
@@ -36,7 +37,7 @@ function read(file, callback, ignoreUnlockErr)
 	}
 	ignoreUnlockErr = ignoreUnlockErr !== false;
 
-	logger.read('read lockFile:%s igunlock:%s', lockFile, ignoreUnlockErr);
+	logger.read('read file:%s lockFile:%s igunlock:%s', file, lockFile, ignoreUnlockErr);
 
 	var pro = new Promise(function(resolve, reject)
 		{
@@ -98,21 +99,25 @@ function read(file, callback, ignoreUnlockErr)
 
 /**
  * 向文件写入内容
- * @param  {String}         file
- * @param  {String/Buffer}  newContent
- * @param  {String/Buffer}  oldContent
- * @param  {Function}       callback
- * @param  {Boolean}        ignoreUnlockErr
+ * 使用锁，但缺乏队列，只用依靠lockOpt来配置等待和重试次数
+ * 
+ * @param  {String}                 file
+ * @param  {String/Buffer}          newContent
+ * @param  {String/Buffer/Boolean}  oldContent
+ * @param  {Function}               callback
+ * @param  {Boolean}                ignoreUnlockErr
  * @return {Promise}
  */
 function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 {
 	var filepath	= path.dirname(file);
 	var lockFile	= _getLockFile(file);
-	var tmpFile		= _extfilename(file, ['', Date.now(), process.pid, Math.floor(Math.random()*10000), ''].join('~'));
+	var tmpFile		= _getTmpFile(file);
 
 	// 处理参数
-	if (typeof oldContent != 'string' || !Buffer.isBuffer(oldContent))
+	if (typeof oldContent != 'string'
+		|| !Buffer.isBuffer(oldContent)
+		|| typeof oldContent != 'boolean')
 	{
 		ignoreUnlockErr = callback;
 		callback = oldContent;
@@ -125,19 +130,9 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 	}
 	ignoreUnlockErr = ignoreUnlockErr !== false;
 
-	logger.write('write lockFile:%s tmpFile:%s igunlock:%s', lockFile, tmpFile, ignoreUnlockErr);
+	logger.write('write file:%s lockFile:%s tmpFile:%s igunlock:%s', file, lockFile, tmpFile, ignoreUnlockErr);
 
-	var pro = new Promise(function(resolve)
-		{
-			fs.exists(filepath, resolve);
-		})
-		.then(function(exists)
-		{
-			return exists || new Promise(function(resolve, reject)
-				{
-					mkdirp(filepath, _resolveWidthError(resolve, reject));
-				});
-		})
+	var pro = _mkdirp(filepath)
 		.then(function()
 		{
 			// lock 工作区域
@@ -150,80 +145,7 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 		})
 		.then(function()
 		{
-			// 读取旧文件内容
-			logger.write('get old content');
-
-			return oldContent || new Promise(function(resolve)
-				{
-					fs.exists(file, resolve);
-				})
-				.then(function(exists)
-				{
-					return !exists ? undefined : 
-						new Promise(function(resolve, reject)
-						{
-							fs.readFile(file, _resolveWidthError(resolve, reject));
-						});
-				})
-				.catch(function(err)
-				{
-					logger.write('read oldContent err:%o', err);
-				});
-		})
-		.then(function(oldContent)
-		{
-			// 如果有旧内容，先判断一下是否需要重写
-			if (!!oldContent && !!newContent
-				&& newContent.toString() == oldContent.toString())
-			{
-				logger.write('write block: content equal');
-				return;
-			}
-			else
-			{
-				// 写入新内容
-				logger.write('write new content');
-
-				return new Promise(function(resolve, reject)
-					{
-						fs.writeFile(tmpFile, newContent, _resolveWidthError(resolve, reject));
-					})
-					.then(function()
-					{
-						return new Promise(function(resolve, reject)
-							{
-								try {
-									// rename 快速把内容转移过去
-									fs.renameSync(tmpFile, file);
-								}
-								catch(err) {
-									return reject(err);
-								}
-
-								resolve();
-							});
-					})
-					.then(function()
-					{
-						// 检查写入的文件是否正确
-						return new Promise(function(resolve, reject)
-							{
-								fs.readFile(file, function(err, content)
-								{
-									if (err) return reject(err);
-
-									if (content.toString() != newContent.toString())
-										return reject(new Error('file content write fail'));
-
-									resolve();
-								});
-							});
-					})
-					.catch(function(err)
-					{
-						logger.write('write err:%o', err);
-					});
-			}
+			return _write(file, tmpFile, newContent, oldContent);
 		})
 		.then(function()
 		{
@@ -268,6 +190,48 @@ function write(file, newContent, oldContent, callback, ignoreUnlockErr)
 }
 
 
+/**
+ * 向文件写入内容
+ * 按照最终一致性，不用锁直接写
+ * 
+ * @param  {String}                 file
+ * @param  {String/Buffer}          newContent
+ * @param  {String/Buffer/Boolean}  oldContent
+ * @param  {Function}               callback
+ * @return {Promise}
+ */
+function fastWrite(file, newContent, oldContent, callback)
+{
+	var filepath	= path.dirname(file);
+	var tmpFile		= _getTmpFile(file);
+
+	if (typeof oldContent != 'string'
+		|| !Buffer.isBuffer(oldContent)
+		|| typeof oldContent != 'boolean')
+	{
+		callback = oldContent;
+		oldContent = null;
+	}
+
+	logger.fastWrite('write file:%s tmpFile:%s', file, tmpFile);
+
+	var pro = _mkdirp(filepath)
+		.then(function()
+		{
+			return _write(file, tmpFile, newContent, oldContent);
+		})
+		.catch(function(err)
+		{
+			logger.fastWrite('write file err:%o', err);
+			throw err;
+		});
+
+	_supportCallback(callback, pro);
+
+	return pro;
+}
+
+
 function _resolveWidthError(resolve, reject)
 {
 	return function(err, data)
@@ -279,6 +243,11 @@ function _resolveWidthError(resolve, reject)
 function _getLockFile(file)
 {
 	return _extfilename(file, '~lock~');
+}
+
+function _getTmpFile(file)
+{
+	return _extfilename(file, ['', Date.now(), process.pid, Math.floor(Math.random()*10000), ''].join('~'));
 }
 
 function _extfilename(file, ext)
@@ -297,4 +266,112 @@ function _supportCallback(callback, pro)
 		},
 		callback);
 	}
+}
+
+function _mkdirp(filepath)
+{
+	return new Promise(function(resolve)
+		{
+			fs.exists(filepath, resolve);
+		})
+		.then(function(exists)
+		{
+			return exists || new Promise(function(resolve, reject)
+				{
+					mkdirp(filepath, _resolveWidthError(resolve, reject));
+				});
+		});
+}
+
+function _write(file, tmpFile, newContent, oldContent)
+{
+	var pro;
+
+	if (oldContent)
+	{
+		pro = Promise.resolve(oldContent);
+	}
+	else if (oldContent === false)
+	{
+		pro = Promise.resolve(null);
+	}
+	else
+	{
+		pro = new Promise(function(resolve)
+			{
+				// 读取旧文件内容
+				logger.write('get old content');
+				fs.exists(file, resolve);
+			})
+			.then(function(exists)
+			{
+				return !exists ? undefined : 
+					new Promise(function(resolve, reject)
+					{
+						fs.readFile(file, _resolveWidthError(resolve, reject));
+					});
+			})
+			.catch(function(err)
+			{
+				logger.write('read oldContent err:%o', err);
+			});
+	}
+				
+
+	return pro.then(function(oldContent)
+		{
+			// 如果有旧内容，先判断一下是否需要重写
+			if (!!oldContent && !!newContent
+				&& newContent.toString() == oldContent.toString())
+			{
+				logger.write('write block: content equal');
+				return;
+			}
+			else
+			{
+				// 写入新内容
+				logger.write('write new content');
+
+				return new Promise(function(resolve, reject)
+					{
+						fs.writeFile(tmpFile, newContent, _resolveWidthError(resolve, reject));
+					})
+					.then(function()
+					{
+						return new Promise(function(resolve, reject)
+							{
+								try {
+									// rename 快速把内容转移过去
+									fs.renameSync(tmpFile, file);
+								}
+								catch(err) {
+									return reject(err);
+								}
+
+								resolve();
+							});
+					})
+					/*.then(function()
+					{
+						// 检查写入的文件是否正确
+						return new Promise(function(resolve, reject)
+							{
+								fs.readFile(file, function(err, content)
+								{
+									if (err) return reject(err);
+
+									if (content.toString() != newContent.toString())
+										return reject(new Error('file content write fail'));
+
+									resolve();
+								});
+							});
+					})*/
+					.catch(function(err)
+					{
+						logger.write('write err:%o', err);
+						throw err;
+					});
+			}
+		});
 }
