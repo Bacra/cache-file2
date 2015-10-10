@@ -7,8 +7,9 @@ var extend	= require('extend');
 
 var logger =
 {
-	read	: debug('safe-write:read'),
-	write	: debug('safe-write:write')
+	read		: debug('safe-write:read'),
+	write		: debug('safe-write:write'),
+	fastWrite	: debug('safe-write:fast')
 };
 
 if (typeof Promise == 'undefined') Promise = require('promise');
