@@ -339,25 +339,10 @@ function _write(file, tmpFile, newContent, oldContent)
 					})
 					.then(function()
 					{
-						return new Promise(function(resolve, reject)
-							{
-								try {
-									// rename 快速把内容转移过去
-									fs.renameSync(tmpFile, file);
-								}
-								catch(err) {
-									return reject(err);
-								}
-
-								resolve();
-							});
-					})
-					/*.then(function()
-					{
 						// 检查写入的文件是否正确
 						return new Promise(function(resolve, reject)
 							{
-								fs.readFile(file, function(err, content)
+								fs.readFile(tmpFile, function(err, content)
 								{
 									if (err) return reject(err);
 
@@ -367,7 +352,29 @@ function _write(file, tmpFile, newContent, oldContent)
 									resolve();
 								});
 							});
-					})*/
+					})
+					.then(function()
+					{
+						return new Promise(function(resolve, reject)
+							{
+								fs.rename(tmpFile, file, _resolveWidthError(resolve, reject));
+							});
+					})
+					.then(function()
+					{
+						// 检查文件是否移动成功
+						// 注意：不要和文件是否写入成功放在一起检查，多个写进程可能会导致写入检查失败
+						return new Promise(function(resolve, reject)
+							{
+								fs.exists(file, function(exists)
+								{
+									if (exists)
+										resolve();
+									else
+										reject(new Error('file mv fail'));
+								});
+							});
+					})
 					.catch(function(err)
 					{
 						logger.write('write err:%o', err);
