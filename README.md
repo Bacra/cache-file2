@@ -8,4 +8,5 @@ Store and get files width file locker. It is safe in mulit process.
 ```javascript
 const safeWrite = require('safe-write')
 safeWrite('./file.json', 'newContent').then(() => {});
+safeWrite.sync('./file.json', 'newContent');
 ```
