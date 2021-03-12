@@ -55,6 +55,7 @@ if (cluster.isMaster) {
 		if (msg != 'start') return;
 
 		const safeWrite = require('../');
+		// const safeWrite = require('../').sync;
 		debug('start write query, pid:%d', process.pid);
 
 		const promises = mapFile(async (file, fileIndex) => {
