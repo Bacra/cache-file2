@@ -1,3 +1,5 @@
 test
 .gitignore
 .travis.yml
+.history
+.vscode
